@@ -6,6 +6,7 @@ cam.position.set(0, 2, 7);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 document.getElementById('canvas').appendChild(renderer.domElement);
 
 const cursor = document.createElement('div');
@@ -19,54 +20,9 @@ cursor.style.cssText = `
     z-index: 9999;
     mix-blend-mode: difference;
     transition: transform 0.1s ease;
+    box-shadow: 0 0 10px #7d7dff;
 `;
 document.body.appendChild(cursor);
-
-const trailCount = 15;
-const trailGeometry = new THREE.BufferGeometry();
-const trailPositions = new Float32Array(trailCount * 3);
-const trailMaterial = new THREE.PointsMaterial({
-    color: 0x7d7dff,
-    size: 0.1,
-    transparent: true,
-    opacity: 0.9,
-    blending: THREE.AdditiveBlending,
-    sizeAttenuation: true
-});
-
-const glowTrailGeometry = new THREE.BufferGeometry();
-const glowTrailPositions = new Float32Array(trailCount * 3);
-const glowTrailMaterial = new THREE.PointsMaterial({
-    color: 0x7d7dff,
-    size: 0.2,
-    transparent: true,
-    opacity: 0.5,
-    blending: THREE.AdditiveBlending,
-    sizeAttenuation: true
-});
-
-for (let i = 0; i < trailCount; i++) {
-    trailPositions[i * 3] = 0;
-    trailPositions[i * 3 + 1] = 0;
-    trailPositions[i * 3 + 2] = 0;
-    
-    glowTrailPositions[i * 3] = 0;
-    glowTrailPositions[i * 3 + 1] = 0;
-    glowTrailPositions[i * 3 + 2] = 0;
-}
-
-trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-glowTrailGeometry.setAttribute('position', new THREE.BufferAttribute(glowTrailPositions, 3));
-
-const trail = new THREE.Points(trailGeometry, trailMaterial);
-const glowTrail = new THREE.Points(glowTrailGeometry, glowTrailMaterial);
-scene.add(trail);
-scene.add(glowTrail);
-
-const trailPositionsArray = [];
-for (let i = 0; i < trailCount; i++) {
-    trailPositionsArray.push(new THREE.Vector3(0, 0, 0));
-}
 
 const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
 scene.add(ambientLight);
@@ -75,7 +31,7 @@ const sun = new THREE.DirectionalLight(0x7d7dff, 0.8);
 sun.position.set(1, 1, 1);
 scene.add(sun);
 
-const particleCount = 200;
+const particleCount = 300;
 const particleGeometry = new THREE.BufferGeometry();
 const particlePositions = new Float32Array(particleCount * 3);
 const particleMaterial = new THREE.PointsMaterial({
@@ -121,26 +77,34 @@ scene.add(particles);
 scene.add(glowParticles);
 
 const shapes = [
-    { name: 'sphere', geo: new THREE.SphereGeometry(1.5, 64, 64) },
-    { name: 'cube', geo: new THREE.BoxGeometry(2, 2, 2) },
-    { name: 'torus', geo: new THREE.TorusGeometry(1.5, 0.5, 32, 64) }
+    { name: 'sphere', geo: new THREE.SphereGeometry(2, 64, 64) },
+    { name: 'cube', geo: new THREE.BoxGeometry(2.5, 2.5, 2.5) },
+    { name: 'torus', geo: new THREE.TorusGeometry(2, 0.6, 32, 64) }
 ];
 
 const gridPositions = [
-    { x: -5, z: -5 },
-    { x: 0, z: -8 },
-    { x: 5, z: -5 }
+    { x: -6, z: -6 },
+    { x: 0, z: -10 },
+    { x: 6, z: -6 }
 ];
 
-const material = new THREE.MeshPhongMaterial({ 
-    color: 0x7d7dff,
-    shininess: 100,
-    wireframe: true,
-    wireframeLinewidth: 2
-});
+const purpleShades = [
+    0x8A2BE2, // BlueViolet
+    0x9370DB, // MediumPurple
+    0x9932CC  // DarkOrchid
+];
 
 const stuff = [];
 for (let i = 0; i < 3; i++) {
+    const material = new THREE.MeshPhongMaterial({ 
+        color: purpleShades[i],
+        shininess: 100,
+        wireframe: true,
+        wireframeLinewidth: 2,
+        emissive: purpleShades[i],
+        emissiveIntensity: 0.3
+    });
+
     const thing = new THREE.Mesh(shapes[i].geo, material);
     thing.position.set(gridPositions[i].x, 0, gridPositions[i].z);
     thing.userData = {
@@ -151,7 +115,9 @@ for (let i = 0; i < 3; i++) {
         floatSpeed: Math.random() * 0.001 + 0.001,
         floatHeight: Math.random() * 0.5 + 0.5,
         pulseSpeed: Math.random() * 0.001 + 0.001,
-        pulseAmount: Math.random() * 0.2 + 0.1
+        pulseAmount: Math.random() * 0.2 + 0.1,
+        colorSpeed: Math.random() * 0.001 + 0.001,
+        baseColor: purpleShades[i]
     };
     scene.add(thing);
     stuff.push(thing);
@@ -166,35 +132,6 @@ window.addEventListener('mousemove', (e) => {
     
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
-    
-    const mouseWorld = new THREE.Vector3(mouse.x * 3, mouse.y * 3, -3);
-    trailPositionsArray.unshift(mouseWorld.clone());
-    trailPositionsArray.pop();
-    
-    for (let i = 0; i < trailCount; i++) {
-        const t = i / trailCount;
-        const wave = Math.sin(Date.now() * 0.01 + i * 0.3) * 0.1;
-        const pulse = Math.sin(Date.now() * 0.02 + i * 0.2) * 0.05;
-        
-        trailPositions[i * 3] = trailPositionsArray[i].x + wave;
-        trailPositions[i * 3 + 1] = trailPositionsArray[i].y + wave;
-        trailPositions[i * 3 + 2] = trailPositionsArray[i].z + pulse;
-        
-        glowTrailPositions[i * 3] = trailPositionsArray[i].x + wave * 1.5;
-        glowTrailPositions[i * 3 + 1] = trailPositionsArray[i].y + wave * 1.5;
-        glowTrailPositions[i * 3 + 2] = trailPositionsArray[i].z + pulse * 1.5;
-        
-        const fade = 1 - (t * t);
-        trailMaterial.opacity = 0.9 * fade;
-        glowTrailMaterial.opacity = 0.5 * fade;
-        
-        const size = 0.1 + Math.sin(Date.now() * 0.02 + i * 0.2) * 0.02;
-        trailMaterial.size = size;
-        glowTrailMaterial.size = size * 2;
-    }
-    
-    trailGeometry.attributes.position.needsUpdate = true;
-    glowTrailGeometry.attributes.position.needsUpdate = true;
     
     stuff.forEach(thing => {
         const dist = Math.sqrt(
@@ -213,9 +150,12 @@ window.addEventListener('mousemove', (e) => {
         
         thing.position.y = Math.sin(Date.now() * thing.userData.floatSpeed + i) * thing.userData.floatHeight;
         
-        const color = new THREE.Color();
-        color.setHSL(Math.sin(Date.now() * 0.001 + i) * 0.1 + 0.5, 0.8, 0.5);
+        const color = new THREE.Color(thing.userData.baseColor);
+        const brightness = 0.5 + Math.sin(Date.now() * thing.userData.colorSpeed) * 0.2;
+        color.offsetHSL(0, 0, brightness - 0.5);
         thing.material.color = color;
+        thing.material.emissive = color;
+        thing.material.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.002) * 0.1;
     });
 });
 
@@ -240,6 +180,7 @@ window.addEventListener('click', (e) => {
         };
         thing.userData.pulseSpeed = Math.random() * 0.001 + 0.001;
         thing.userData.pulseAmount = Math.random() * 0.2 + 0.1;
+        thing.userData.colorSpeed = Math.random() * 0.001 + 0.001;
         document.getElementById('shape').textContent = thing.userData.type;
     }
 });
