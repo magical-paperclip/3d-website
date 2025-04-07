@@ -1,71 +1,121 @@
 let scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
+scene.background = new THREE.Color(0x0a0a0a);
 
 let cam = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-cam.position.set(0, 0, 5);
-cam.lookAt(0, 0, 0);
+cam.position.set(0, 2, 7);
 
 let renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('canvas').appendChild(renderer.domElement);
 
-let light = new THREE.AmbientLight(0x404040);
-scene.add(light);
+// Custom mouse cursor
+let cursor = document.createElement('div');
+cursor.style.cssText = `
+    width: 20px;
+    height: 20px;
+    border: 2px solid #7d7dff;
+    border-radius: 50%;
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: difference;
+    transition: transform 0.1s ease;
+`;
+document.body.appendChild(cursor);
 
-let sun = new THREE.DirectionalLight(0xffffff, 1);
+// Ambient light
+let ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+scene.add(ambientLight);
+
+// Directional light
+let sun = new THREE.DirectionalLight(0x7d7dff, 0.8);
 sun.position.set(1, 1, 1);
 scene.add(sun);
 
+// Background particles
+const particleCount = 200;
+const particleGeometry = new THREE.BufferGeometry();
+const particlePositions = new Float32Array(particleCount * 3);
+const particleMaterial = new THREE.PointsMaterial({
+    color: 0x7d7dff,
+    size: 0.05,
+    transparent: true,
+    opacity: 0.3,
+    blending: THREE.AdditiveBlending
+});
+
+for (let i = 0; i < particleCount; i++) {
+    particlePositions[i * 3] = (Math.random() - 0.5) * 20;
+    particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 20;
+    particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+}
+
+particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+const particles = new THREE.Points(particleGeometry, particleMaterial);
+scene.add(particles);
+
 let stuff = [];
 let shapes = [
-    { name: 'ball', geo: new THREE.SphereGeometry(1, 32, 32) },
-    { name: 'donut', geo: new THREE.TorusGeometry(1, 0.3, 16, 32) },
-    { name: 'spiky', geo: new THREE.IcosahedronGeometry(1) },
-    { name: 'diamond', geo: new THREE.OctahedronGeometry(1) },
-    { name: 'pyramid', geo: new THREE.TetrahedronGeometry(1) },
-    { name: 'd12', geo: new THREE.DodecahedronGeometry(1) }
+    { name: 'sphere', geo: new THREE.SphereGeometry(1, 32, 32) },
+    { name: 'cube', geo: new THREE.BoxGeometry(1, 1, 1) },
+    { name: 'torus', geo: new THREE.TorusGeometry(1, 0.3, 16, 32) }
 ];
 
-let colors = [
-    new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.2, metalness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.2, metalness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0x0000ff, roughness: 0.2, metalness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0xffff00, roughness: 0.2, metalness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0xff00ff, roughness: 0.2, metalness: 0.8 }),
-    new THREE.MeshStandardMaterial({ color: 0x00ffff, roughness: 0.2, metalness: 0.8 })
+// Grid positions
+const gridPositions = [
+    { x: -2, z: -2 },
+    { x: 0, z: -2 },
+    { x: 2, z: -2 }
 ];
 
-for (let i = 0; i < 6; i++) {
-    let angle = (i / 6) * Math.PI * 2;
-    let x = Math.cos(angle) * 3;
-    let z = Math.sin(angle) * 3;
+// Materials
+const material = new THREE.MeshPhongMaterial({ 
+    color: 0x7d7dff,
+    shininess: 100,
+    wireframe: true
+});
 
-    let thing = new THREE.Mesh(shapes[i].geo, colors[i]);
-    thing.position.set(x, 0, z);
+// Create shapes in grid
+for (let i = 0; i < 3; i++) {
+    let thing = new THREE.Mesh(shapes[i].geo, material);
+    thing.position.set(gridPositions[i].x, 0, gridPositions[i].z);
     thing.userData = {
         type: shapes[i].name,
-        spinning: false
+        originalPos: {x: gridPositions[i].x, y: 0, z: gridPositions[i].z}
     };
     scene.add(thing);
     stuff.push(thing);
 }
 
-let ray = new THREE.Raycaster();
+// Mouse tracking
 let mouse = new THREE.Vector2();
+let ray = new THREE.Raycaster();
 
-window.addEventListener('resize', () => {
-    cam.aspect = window.innerWidth / window.innerHeight;
-    cam.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+window.addEventListener('mousemove', (e) => {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+    
+    stuff.forEach(thing => {
+        let dist = Math.sqrt(
+            Math.pow(thing.position.x - (mouse.x * 5), 2) + 
+            Math.pow(thing.position.z - (mouse.y * 5), 2)
+        );
+        thing.rotation.x += 0.01;
+        thing.rotation.y += 0.01;
+        thing.scale.set(1 + 0.1 / dist, 1 + 0.1 / dist, 1 + 0.1 / dist);
+    });
 });
 
 window.addEventListener('click', (e) => {
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
+    
     ray.setFromCamera(mouse, cam);
     let hits = ray.intersectObjects(stuff);
-
+    
     if (hits.length > 0) {
         let thing = hits[0].object;
         let now = shapes.findIndex(s => s.name === thing.userData.type);
@@ -73,30 +123,24 @@ window.addEventListener('click', (e) => {
         
         thing.geometry = shapes[next].geo;
         thing.userData.type = shapes[next].name;
-        
         document.getElementById('shape').textContent = thing.userData.type;
-        
-        thing.userData.spinning = true;
-        thing.scale.set(1.2, 1.2, 1.2);
-        
-        setTimeout(() => {
-            thing.userData.spinning = false;
-            thing.scale.set(1, 1, 1);
-        }, 300);
     }
 });
 
-function go() {
-    requestAnimationFrame(go);
-
-    stuff.forEach(thing => {
-        if (!thing.userData.spinning) {
-            thing.rotation.x += 0.01;
-            thing.rotation.y += 0.01;
+function animate() {
+    requestAnimationFrame(animate);
+    
+    // Animate background particles
+    const positions = particleGeometry.attributes.position.array;
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3 + 1] += 0.01;
+        if (positions[i * 3 + 1] > 10) {
+            positions[i * 3 + 1] = -10;
         }
-    });
-
+    }
+    particleGeometry.attributes.position.needsUpdate = true;
+    
     renderer.render(scene, cam);
 }
 
-go(); 
+animate(); 
