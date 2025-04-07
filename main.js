@@ -22,14 +22,14 @@ cursor.style.cssText = `
 `;
 document.body.appendChild(cursor);
 
-const trailCount = 30;
+const trailCount = 15;
 const trailGeometry = new THREE.BufferGeometry();
 const trailPositions = new Float32Array(trailCount * 3);
 const trailMaterial = new THREE.PointsMaterial({
     color: 0x7d7dff,
-    size: 0.2,
+    size: 0.1,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.9,
     blending: THREE.AdditiveBlending,
     sizeAttenuation: true
 });
@@ -38,9 +38,9 @@ const glowTrailGeometry = new THREE.BufferGeometry();
 const glowTrailPositions = new Float32Array(trailCount * 3);
 const glowTrailMaterial = new THREE.PointsMaterial({
     color: 0x7d7dff,
-    size: 0.4,
+    size: 0.2,
     transparent: true,
-    opacity: 0.3,
+    opacity: 0.5,
     blending: THREE.AdditiveBlending,
     sizeAttenuation: true
 });
@@ -167,18 +167,30 @@ window.addEventListener('mousemove', (e) => {
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
     
-    const mouseWorld = new THREE.Vector3(mouse.x * 8, mouse.y * 8, -10);
+    const mouseWorld = new THREE.Vector3(mouse.x * 3, mouse.y * 3, -3);
     trailPositionsArray.unshift(mouseWorld.clone());
     trailPositionsArray.pop();
     
     for (let i = 0; i < trailCount; i++) {
-        trailPositions[i * 3] = trailPositionsArray[i].x;
-        trailPositions[i * 3 + 1] = trailPositionsArray[i].y;
-        trailPositions[i * 3 + 2] = trailPositionsArray[i].z;
+        const t = i / trailCount;
+        const wave = Math.sin(Date.now() * 0.01 + i * 0.3) * 0.1;
+        const pulse = Math.sin(Date.now() * 0.02 + i * 0.2) * 0.05;
         
-        glowTrailPositions[i * 3] = trailPositionsArray[i].x;
-        glowTrailPositions[i * 3 + 1] = trailPositionsArray[i].y;
-        glowTrailPositions[i * 3 + 2] = trailPositionsArray[i].z;
+        trailPositions[i * 3] = trailPositionsArray[i].x + wave;
+        trailPositions[i * 3 + 1] = trailPositionsArray[i].y + wave;
+        trailPositions[i * 3 + 2] = trailPositionsArray[i].z + pulse;
+        
+        glowTrailPositions[i * 3] = trailPositionsArray[i].x + wave * 1.5;
+        glowTrailPositions[i * 3 + 1] = trailPositionsArray[i].y + wave * 1.5;
+        glowTrailPositions[i * 3 + 2] = trailPositionsArray[i].z + pulse * 1.5;
+        
+        const fade = 1 - (t * t);
+        trailMaterial.opacity = 0.9 * fade;
+        glowTrailMaterial.opacity = 0.5 * fade;
+        
+        const size = 0.1 + Math.sin(Date.now() * 0.02 + i * 0.2) * 0.02;
+        trailMaterial.size = size;
+        glowTrailMaterial.size = size * 2;
     }
     
     trailGeometry.attributes.position.needsUpdate = true;
