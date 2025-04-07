@@ -22,6 +22,33 @@ cursor.style.cssText = `
 `;
 document.body.appendChild(cursor);
 
+const trailCount = 20;
+const trailGeometry = new THREE.BufferGeometry();
+const trailPositions = new Float32Array(trailCount * 3);
+const trailMaterial = new THREE.PointsMaterial({
+    color: 0x7d7dff,
+    size: 0.1,
+    transparent: true,
+    opacity: 0.6,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true
+});
+
+for (let i = 0; i < trailCount; i++) {
+    trailPositions[i * 3] = 0;
+    trailPositions[i * 3 + 1] = 0;
+    trailPositions[i * 3 + 2] = 0;
+}
+
+trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+const trail = new THREE.Points(trailGeometry, trailMaterial);
+scene.add(trail);
+
+const trailPositionsArray = [];
+for (let i = 0; i < trailCount; i++) {
+    trailPositionsArray.push(new THREE.Vector3(0, 0, 0));
+}
+
 const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
 scene.add(ambientLight);
 
@@ -103,7 +130,9 @@ for (let i = 0; i < 3; i++) {
         rotationSpeed: {x: Math.random() * 0.02, y: Math.random() * 0.02, z: Math.random() * 0.02},
         scale: 1,
         floatSpeed: Math.random() * 0.001 + 0.001,
-        floatHeight: Math.random() * 0.5 + 0.5
+        floatHeight: Math.random() * 0.5 + 0.5,
+        pulseSpeed: Math.random() * 0.001 + 0.001,
+        pulseAmount: Math.random() * 0.2 + 0.1
     };
     scene.add(thing);
     stuff.push(thing);
@@ -119,6 +148,18 @@ window.addEventListener('mousemove', (e) => {
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
     
+    const mouseWorld = new THREE.Vector3(mouse.x * 8, mouse.y * 8, -10);
+    trailPositionsArray.unshift(mouseWorld.clone());
+    trailPositionsArray.pop();
+    
+    for (let i = 0; i < trailCount; i++) {
+        trailPositions[i * 3] = trailPositionsArray[i].x;
+        trailPositions[i * 3 + 1] = trailPositionsArray[i].y;
+        trailPositions[i * 3 + 2] = trailPositionsArray[i].z;
+    }
+    
+    trailGeometry.attributes.position.needsUpdate = true;
+    
     stuff.forEach(thing => {
         const dist = Math.sqrt(
             Math.pow(thing.position.x - (mouse.x * 8), 2) + 
@@ -129,11 +170,16 @@ window.addEventListener('mousemove', (e) => {
         thing.rotation.y += thing.userData.rotationSpeed.y;
         thing.rotation.z += thing.userData.rotationSpeed.z;
         
-        const targetScale = 1 + 0.3 / dist;
+        const pulse = Math.sin(Date.now() * thing.userData.pulseSpeed) * thing.userData.pulseAmount;
+        const targetScale = 1 + 0.3 / dist + pulse;
         thing.userData.scale += (targetScale - thing.userData.scale) * 0.1;
         thing.scale.set(thing.userData.scale, thing.userData.scale, thing.userData.scale);
         
         thing.position.y = Math.sin(Date.now() * thing.userData.floatSpeed + i) * thing.userData.floatHeight;
+        
+        const color = new THREE.Color();
+        color.setHSL(Math.sin(Date.now() * 0.001 + i) * 0.1 + 0.5, 0.8, 0.5);
+        thing.material.color = color;
     });
 });
 
@@ -156,6 +202,8 @@ window.addEventListener('click', (e) => {
             y: Math.random() * 0.02,
             z: Math.random() * 0.02
         };
+        thing.userData.pulseSpeed = Math.random() * 0.001 + 0.001;
+        thing.userData.pulseAmount = Math.random() * 0.2 + 0.1;
         document.getElementById('shape').textContent = thing.userData.type;
     }
 });
