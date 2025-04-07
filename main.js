@@ -8,7 +8,6 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('canvas').appendChild(renderer.domElement);
 
-// Custom mouse cursor
 const cursor = document.createElement('div');
 cursor.style.cssText = `
     width: 20px;
@@ -23,16 +22,13 @@ cursor.style.cssText = `
 `;
 document.body.appendChild(cursor);
 
-// Ambient light
 const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
 scene.add(ambientLight);
 
-// Directional light
 const sun = new THREE.DirectionalLight(0x7d7dff, 0.8);
 sun.position.set(1, 1, 1);
 scene.add(sun);
 
-// Background particles
 const particleCount = 200;
 const particleGeometry = new THREE.BufferGeometry();
 const particlePositions = new Float32Array(particleCount * 3);
@@ -45,7 +41,6 @@ const particleMaterial = new THREE.PointsMaterial({
     sizeAttenuation: true
 });
 
-// Add glow effect
 const glowGeometry = new THREE.BufferGeometry();
 const glowPositions = new Float32Array(particleCount * 3);
 const glowMaterial = new THREE.PointsMaterial({
@@ -80,39 +75,40 @@ scene.add(particles);
 scene.add(glowParticles);
 
 const shapes = [
-    { name: 'sphere', geo: new THREE.SphereGeometry(1, 32, 32) },
-    { name: 'cube', geo: new THREE.BoxGeometry(1, 1, 1) },
-    { name: 'torus', geo: new THREE.TorusGeometry(1, 0.3, 16, 32) }
+    { name: 'sphere', geo: new THREE.SphereGeometry(1.5, 64, 64) },
+    { name: 'cube', geo: new THREE.BoxGeometry(2, 2, 2) },
+    { name: 'torus', geo: new THREE.TorusGeometry(1.5, 0.5, 32, 64) }
 ];
 
-// Grid positions
 const gridPositions = [
-    { x: -2, z: -2 },
-    { x: 0, z: -2 },
-    { x: 2, z: -2 }
+    { x: -5, z: -5 },
+    { x: 0, z: -8 },
+    { x: 5, z: -5 }
 ];
 
-// Materials
 const material = new THREE.MeshPhongMaterial({ 
     color: 0x7d7dff,
     shininess: 100,
-    wireframe: true
+    wireframe: true,
+    wireframeLinewidth: 2
 });
 
-// Create shapes in grid
 const stuff = [];
 for (let i = 0; i < 3; i++) {
     const thing = new THREE.Mesh(shapes[i].geo, material);
     thing.position.set(gridPositions[i].x, 0, gridPositions[i].z);
     thing.userData = {
         type: shapes[i].name,
-        originalPos: {x: gridPositions[i].x, y: 0, z: gridPositions[i].z}
+        originalPos: {x: gridPositions[i].x, y: 0, z: gridPositions[i].z},
+        rotationSpeed: {x: Math.random() * 0.02, y: Math.random() * 0.02, z: Math.random() * 0.02},
+        scale: 1,
+        floatSpeed: Math.random() * 0.001 + 0.001,
+        floatHeight: Math.random() * 0.5 + 0.5
     };
     scene.add(thing);
     stuff.push(thing);
 }
 
-// Mouse tracking
 const mouse = new THREE.Vector2();
 const ray = new THREE.Raycaster();
 
@@ -125,12 +121,19 @@ window.addEventListener('mousemove', (e) => {
     
     stuff.forEach(thing => {
         const dist = Math.sqrt(
-            Math.pow(thing.position.x - (mouse.x * 5), 2) + 
-            Math.pow(thing.position.z - (mouse.y * 5), 2)
+            Math.pow(thing.position.x - (mouse.x * 8), 2) + 
+            Math.pow(thing.position.z - (mouse.y * 8), 2)
         );
-        thing.rotation.x += 0.01;
-        thing.rotation.y += 0.01;
-        thing.scale.set(1 + 0.1 / dist, 1 + 0.1 / dist, 1 + 0.1 / dist);
+        
+        thing.rotation.x += thing.userData.rotationSpeed.x;
+        thing.rotation.y += thing.userData.rotationSpeed.y;
+        thing.rotation.z += thing.userData.rotationSpeed.z;
+        
+        const targetScale = 1 + 0.3 / dist;
+        thing.userData.scale += (targetScale - thing.userData.scale) * 0.1;
+        thing.scale.set(thing.userData.scale, thing.userData.scale, thing.userData.scale);
+        
+        thing.position.y = Math.sin(Date.now() * thing.userData.floatSpeed + i) * thing.userData.floatHeight;
     });
 });
 
@@ -148,6 +151,11 @@ window.addEventListener('click', (e) => {
         
         thing.geometry = shapes[next].geo;
         thing.userData.type = shapes[next].name;
+        thing.userData.rotationSpeed = {
+            x: Math.random() * 0.02,
+            y: Math.random() * 0.02,
+            z: Math.random() * 0.02
+        };
         document.getElementById('shape').textContent = thing.userData.type;
     }
 });
@@ -155,7 +163,6 @@ window.addEventListener('click', (e) => {
 function animate() {
     requestAnimationFrame(animate);
     
-    // Animate background particles
     const positions = particleGeometry.attributes.position.array;
     const glowPositions = glowGeometry.attributes.position.array;
     
