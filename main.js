@@ -22,14 +22,25 @@ cursor.style.cssText = `
 `;
 document.body.appendChild(cursor);
 
-const trailCount = 20;
+const trailCount = 30;
 const trailGeometry = new THREE.BufferGeometry();
 const trailPositions = new Float32Array(trailCount * 3);
 const trailMaterial = new THREE.PointsMaterial({
     color: 0x7d7dff,
-    size: 0.1,
+    size: 0.2,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending,
+    sizeAttenuation: true
+});
+
+const glowTrailGeometry = new THREE.BufferGeometry();
+const glowTrailPositions = new Float32Array(trailCount * 3);
+const glowTrailMaterial = new THREE.PointsMaterial({
+    color: 0x7d7dff,
+    size: 0.4,
+    transparent: true,
+    opacity: 0.3,
     blending: THREE.AdditiveBlending,
     sizeAttenuation: true
 });
@@ -38,11 +49,19 @@ for (let i = 0; i < trailCount; i++) {
     trailPositions[i * 3] = 0;
     trailPositions[i * 3 + 1] = 0;
     trailPositions[i * 3 + 2] = 0;
+    
+    glowTrailPositions[i * 3] = 0;
+    glowTrailPositions[i * 3 + 1] = 0;
+    glowTrailPositions[i * 3 + 2] = 0;
 }
 
 trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+glowTrailGeometry.setAttribute('position', new THREE.BufferAttribute(glowTrailPositions, 3));
+
 const trail = new THREE.Points(trailGeometry, trailMaterial);
+const glowTrail = new THREE.Points(glowTrailGeometry, glowTrailMaterial);
 scene.add(trail);
+scene.add(glowTrail);
 
 const trailPositionsArray = [];
 for (let i = 0; i < trailCount; i++) {
@@ -156,9 +175,14 @@ window.addEventListener('mousemove', (e) => {
         trailPositions[i * 3] = trailPositionsArray[i].x;
         trailPositions[i * 3 + 1] = trailPositionsArray[i].y;
         trailPositions[i * 3 + 2] = trailPositionsArray[i].z;
+        
+        glowTrailPositions[i * 3] = trailPositionsArray[i].x;
+        glowTrailPositions[i * 3 + 1] = trailPositionsArray[i].y;
+        glowTrailPositions[i * 3 + 2] = trailPositionsArray[i].z;
     }
     
     trailGeometry.attributes.position.needsUpdate = true;
+    glowTrailGeometry.attributes.position.needsUpdate = true;
     
     stuff.forEach(thing => {
         const dist = Math.sqrt(
