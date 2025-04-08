@@ -4,6 +4,14 @@ world.background = new THREE.Color(0x0a0a0a);
 const view = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 view.position.set(0, 2, 7);
 
+let targetZoom = 7;
+let currentZoom = 7;
+
+window.addEventListener('wheel', (e) => {
+    targetZoom += e.deltaY * 0.01;
+    targetZoom = Math.max(3, Math.min(15, targetZoom));
+});
+
 const canvas = new THREE.WebGLRenderer({ antialias: true });
 canvas.setSize(window.innerWidth, window.innerHeight);
 canvas.setPixelRatio(window.devicePixelRatio);
@@ -19,7 +27,7 @@ dot.style.cssText = `
     pointer-events: none;
     z-index: 9999;
     mix-blend-mode: difference;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: 0 0 10px #7d7dff;
 `;
 document.body.appendChild(dot);
@@ -103,51 +111,26 @@ const purples = [
 ];
 
 function makeSurface(points, faces) {
-    const patterns = [
-        () => {
-            const noise = Math.random() * 0.4;
-            const wave = Math.sin(x * 2) * Math.cos(y * 2) * Math.sin(z * 2) * 0.2;
-            const dent = Math.random() * 0.3;
-            const ripple = Math.sin(Math.sqrt(x*x + y*y + z*z) * 3) * 0.15;
-            return { noise, wave, dent, ripple };
-        },
-        () => {
-            const noise = Math.random() * 0.2;
-            const wave = Math.sin(x * 4) * Math.cos(y * 4) * Math.sin(z * 4) * 0.3;
-            const dent = Math.random() * 0.2;
-            const ripple = Math.sin(Math.sqrt(x*x + y*y + z*z) * 6) * 0.2;
-            return { noise, wave, dent, ripple };
-        },
-        () => {
-            const noise = Math.random() * 0.6;
-            const wave = Math.sin(x * 1.5) * Math.cos(y * 1.5) * Math.sin(z * 1.5) * 0.1;
-            const dent = Math.random() * 0.4;
-            const ripple = Math.sin(Math.sqrt(x*x + y*y + z*z) * 2) * 0.1;
-            return { noise, wave, dent, ripple };
-        }
-    ];
-
-    const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-    
     for (let j = 0; j < points.length; j += 3) {
         const x = points[j];
         const y = points[j + 1];
         const z = points[j + 2];
         
-        const details = pattern();
-        const crack = Math.random() > 0.95 ? Math.random() * 0.35 : 0;
+        const noise = Math.random() * 0.2;
+        const wave = Math.sin(x * 2) * Math.cos(y * 2) * Math.sin(z * 2) * 0.1;
+        const dent = Math.random() * 0.1;
         
-        points[j] += x * details.noise + details.wave + details.dent + details.ripple + crack;
-        points[j + 1] += y * details.noise + details.wave + details.dent + details.ripple + crack;
-        points[j + 2] += z * details.noise + details.wave + details.dent + details.ripple + crack;
+        points[j] += x * noise + wave + dent;
+        points[j + 1] += y * noise + wave + dent;
+        points[j + 2] += z * noise + wave + dent;
         
         const nx = faces[j];
         const ny = faces[j + 1];
         const nz = faces[j + 2];
         
-        faces[j] += nx * details.noise * 0.7;
-        faces[j + 1] += ny * details.noise * 0.7;
-        faces[j + 2] += nz * details.noise * 0.7;
+        faces[j] += nx * noise * 0.5;
+        faces[j + 1] += ny * noise * 0.5;
+        faces[j + 2] += nz * noise * 0.5;
     }
 }
 
@@ -161,8 +144,6 @@ function makeLook(color) {
             emissiveIntensity: 0.1,
             flatShading: true,
             specular: 0x333333,
-            roughness: 0.8,
-            metalness: 0.3,
             bumpScale: 0.6
         }),
         () => new THREE.MeshPhongMaterial({ 
@@ -173,8 +154,6 @@ function makeLook(color) {
             emissiveIntensity: 0.2,
             flatShading: true,
             specular: 0x111111,
-            roughness: 0.95,
-            metalness: 0.1,
             bumpScale: 0.9
         }),
         () => new THREE.MeshPhongMaterial({ 
@@ -185,8 +164,6 @@ function makeLook(color) {
             emissiveIntensity: 0.05,
             flatShading: true,
             specular: 0x444444,
-            roughness: 0.7,
-            metalness: 0.4,
             bumpScale: 0.4
         })
     ];
@@ -211,20 +188,20 @@ for (let i = 0; i < 3; i++) {
     thing.userData = {
         type: forms[i].name,
         startPos: {x: spots[i].x, y: 0, z: spots[i].z},
-        spin: {x: Math.random() * 0.0005, y: Math.random() * 0.0005, z: Math.random() * 0.0005},
+        spin: {x: Math.random() * 0.0003, y: Math.random() * 0.0003, z: Math.random() * 0.0003},
         size: 1,
-        floatSpeed: Math.random() * 0.00005 + 0.00005,
-        floatHeight: Math.random() * 0.05 + 0.05,
-        pulseSpeed: Math.random() * 0.00005 + 0.00005,
-        pulseAmount: Math.random() * 0.01 + 0.01,
-        colorSpeed: Math.random() * 0.00005 + 0.00005,
+        floatSpeed: Math.random() * 0.00003 + 0.00003,
+        floatHeight: Math.random() * 0.03 + 0.03,
+        pulseSpeed: Math.random() * 0.00003 + 0.00003,
+        pulseAmount: Math.random() * 0.005 + 0.005,
+        colorSpeed: Math.random() * 0.00003 + 0.00003,
         color: purples[i],
         targetSize: 1,
         morphProgress: 0,
-        deformStrength: 0.3,
+        deformStrength: 0.2,
         deformRadius: 0.5,
-        smoothFactor: 0.05,
-        wobble: Math.random() * 0.1,
+        smoothFactor: 0.02,
+        wobble: Math.random() * 0.05,
         stretch: 1,
         twist: 0
     };
@@ -348,17 +325,17 @@ function changeShape(thing, targetShape) {
 
 function wobbleShape(thing) {
     const points = thing.geometry.attributes.position.array;
-    const time = Date.now() * 0.001;
+    const time = Date.now() * 0.0005;
     
     for (let i = 0; i < points.length; i += 3) {
         const x = points[i];
         const y = points[i + 1];
         const z = points[i + 2];
         
-        const wobble = Math.sin(time + x * 2) * thing.userData.wobble;
+        const wobble = Math.sin(time + x * 1.5) * thing.userData.wobble;
         points[i] += wobble;
-        points[i + 1] += wobble * 0.5;
-        points[i + 2] += wobble * 0.3;
+        points[i + 1] += wobble * 0.3;
+        points[i + 2] += wobble * 0.2;
     }
     
     thing.geometry.attributes.position.needsUpdate = true;
@@ -367,17 +344,17 @@ function wobbleShape(thing) {
 
 function stretchShape(thing) {
     const points = thing.geometry.attributes.position.array;
-    const time = Date.now() * 0.001;
+    const time = Date.now() * 0.0005;
     
     for (let i = 0; i < points.length; i += 3) {
         const x = points[i];
         const y = points[i + 1];
         const z = points[i + 2];
         
-        const stretch = Math.sin(time) * 0.1;
+        const stretch = Math.sin(time) * 0.05;
         points[i] *= 1 + stretch;
-        points[i + 1] *= 1 - stretch * 0.5;
-        points[i + 2] *= 1 + stretch * 0.3;
+        points[i + 1] *= 1 - stretch * 0.3;
+        points[i + 2] *= 1 + stretch * 0.2;
     }
     
     thing.geometry.attributes.position.needsUpdate = true;
@@ -386,15 +363,15 @@ function stretchShape(thing) {
 
 function twistShape(thing) {
     const points = thing.geometry.attributes.position.array;
-    const time = Date.now() * 0.001;
+    const time = Date.now() * 0.0005;
     
     for (let i = 0; i < points.length; i += 3) {
         const x = points[i];
         const y = points[i + 1];
         const z = points[i + 2];
         
-        const angle = time + y * 0.5;
-        const twist = Math.sin(angle) * 0.2;
+        const angle = time + y * 0.3;
+        const twist = Math.sin(angle) * 0.1;
         
         const newX = x * Math.cos(twist) - z * Math.sin(twist);
         const newZ = x * Math.sin(twist) + z * Math.cos(twist);
@@ -522,6 +499,9 @@ window.addEventListener('click', (e) => {
 
 function draw() {
     requestAnimationFrame(draw);
+    
+    currentZoom += (targetZoom - currentZoom) * 0.05;
+    view.position.z = currentZoom;
     
     trails.forEach(trail => {
         if (trail.visible) {
