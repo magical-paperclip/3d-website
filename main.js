@@ -24,12 +24,16 @@ cursor.style.cssText = `
 `;
 document.body.appendChild(cursor);
 
-const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
 scene.add(ambientLight);
 
-const sun = new THREE.DirectionalLight(0x7d7dff, 0.8);
-sun.position.set(1, 1, 1);
+const sun = new THREE.DirectionalLight(0x7d7dff, 1.2);
+sun.position.set(2, 3, 2);
 scene.add(sun);
+
+const rimLight = new THREE.DirectionalLight(0x7d7dff, 0.8);
+rimLight.position.set(-2, -1, -2);
+scene.add(rimLight);
 
 const particleCount = 300;
 const particleGeometry = new THREE.BufferGeometry();
@@ -78,7 +82,7 @@ scene.add(glowParticles);
 
 const shapes = [
     { name: 'sphere', geo: new THREE.SphereGeometry(2, 64, 64) },
-    { name: 'cube', geo: new THREE.BoxGeometry(2.5, 2.5, 2.5) },
+    { name: 'cube', geo: new THREE.BoxGeometry(2.5, 2.5, 2.5, 32, 32, 32) },
     { name: 'torus', geo: new THREE.TorusGeometry(2, 0.6, 32, 64) }
 ];
 
@@ -89,35 +93,58 @@ const gridPositions = [
 ];
 
 const purpleShades = [
-    0x8A2BE2, // BlueViolet
-    0x9370DB, // MediumPurple
-    0x9932CC  // DarkOrchid
+    0x8A2BE2, 
+    0x9370DB, 
+    0x9932CC  
 ];
 
 const stuff = [];
 for (let i = 0; i < 3; i++) {
     const material = new THREE.MeshPhongMaterial({ 
         color: purpleShades[i],
-        shininess: 100,
-        wireframe: true,
-        wireframeLinewidth: 2,
+        shininess: 20,
+        wireframe: false,
         emissive: purpleShades[i],
-        emissiveIntensity: 0.3
+        emissiveIntensity: 0.1,
+        flatShading: true,
+        specular: 0x222222,
+        roughness: 0.9,
+        metalness: 0.2
     });
 
     const thing = new THREE.Mesh(shapes[i].geo, material);
     thing.position.set(gridPositions[i].x, 0, gridPositions[i].z);
+    
+    const vertices = thing.geometry.attributes.position.array;
+    for (let j = 0; j < vertices.length; j += 3) {
+        const x = vertices[j];
+        const y = vertices[j + 1];
+        const z = vertices[j + 2];
+        
+        const noise = Math.random() * 0.2;
+        const wave = Math.sin(x * 2) * Math.cos(y * 2) * Math.sin(z * 2) * 0.1;
+        const dent = Math.random() * 0.15;
+        
+        vertices[j] += x * noise + wave + dent;
+        vertices[j + 1] += y * noise + wave + dent;
+        vertices[j + 2] += z * noise + wave + dent;
+    }
+    thing.geometry.attributes.position.needsUpdate = true;
+    thing.geometry.computeVertexNormals();
+    
     thing.userData = {
         type: shapes[i].name,
         originalPos: {x: gridPositions[i].x, y: 0, z: gridPositions[i].z},
-        rotationSpeed: {x: Math.random() * 0.02, y: Math.random() * 0.02, z: Math.random() * 0.02},
+        rotationSpeed: {x: Math.random() * 0.003, y: Math.random() * 0.003, z: Math.random() * 0.003},
         scale: 1,
-        floatSpeed: Math.random() * 0.001 + 0.001,
-        floatHeight: Math.random() * 0.5 + 0.5,
-        pulseSpeed: Math.random() * 0.001 + 0.001,
-        pulseAmount: Math.random() * 0.2 + 0.1,
-        colorSpeed: Math.random() * 0.001 + 0.001,
-        baseColor: purpleShades[i]
+        floatSpeed: Math.random() * 0.0002 + 0.0002,
+        floatHeight: Math.random() * 0.15 + 0.15,
+        pulseSpeed: Math.random() * 0.0002 + 0.0002,
+        pulseAmount: Math.random() * 0.03 + 0.03,
+        colorSpeed: Math.random() * 0.0002 + 0.0002,
+        baseColor: purpleShades[i],
+        targetScale: 1,
+        morphProgress: 0
     };
     scene.add(thing);
     stuff.push(thing);
@@ -215,34 +242,31 @@ window.addEventListener('click', (e) => {
         const now = shapes.findIndex(s => s.name === thing.userData.type);
         const next = (now + 1) % shapes.length;
         
-        // Create explosion at current position
         createExplosion(thing.position.clone(), thing.material.color);
         
-        // Hide current shape
-        thing.visible = false;
+        thing.userData.morphing = true;
+        thing.userData.morphProgress = 0;
+        thing.userData.nextShape = next;
         
-        // Create new shape after a delay
         setTimeout(() => {
             thing.geometry = shapes[next].geo;
             thing.userData.type = shapes[next].name;
             thing.userData.rotationSpeed = {
-                x: Math.random() * 0.02,
-                y: Math.random() * 0.02,
-                z: Math.random() * 0.02
+                x: Math.random() * 0.005,
+                y: Math.random() * 0.005,
+                z: Math.random() * 0.005
             };
-            thing.userData.pulseSpeed = Math.random() * 0.001 + 0.001;
-            thing.userData.pulseAmount = Math.random() * 0.2 + 0.1;
-            thing.userData.colorSpeed = Math.random() * 0.001 + 0.001;
-            thing.visible = true;
+            thing.userData.pulseSpeed = Math.random() * 0.0003 + 0.0003;
+            thing.userData.pulseAmount = Math.random() * 0.05 + 0.05;
+            thing.userData.colorSpeed = Math.random() * 0.0003 + 0.0003;
             document.getElementById('shape').textContent = thing.userData.type;
-        }, 500);
+        }, 1000);
     }
 });
 
 function animate() {
     requestAnimationFrame(animate);
     
-    // Update explosion particles
     explosionParticles.forEach(particle => {
         if (particle.visible) {
             particle.position.add(particle.userData.velocity);
@@ -250,7 +274,7 @@ function animate() {
             particle.rotation.y += particle.userData.rotationSpeed.y;
             particle.rotation.z += particle.userData.rotationSpeed.z;
             
-            particle.userData.life -= 0.015;
+            particle.userData.life -= 0.01;
             particle.scale.setScalar(particle.userData.scale * particle.userData.life);
             particle.material.opacity = particle.userData.life;
             
@@ -258,6 +282,36 @@ function animate() {
                 particle.visible = false;
             }
         }
+    });
+    
+    stuff.forEach(thing => {
+        if (thing.userData.morphing) {
+            thing.userData.morphProgress += 0.01;
+            if (thing.userData.morphProgress >= 1) {
+                thing.userData.morphing = false;
+            }
+            
+            const scale = 1 + Math.sin(thing.userData.morphProgress * Math.PI) * 0.2;
+            thing.scale.set(scale, scale, scale);
+        }
+        
+        thing.rotation.x += thing.userData.rotationSpeed.x;
+        thing.rotation.y += thing.userData.rotationSpeed.y;
+        thing.rotation.z += thing.userData.rotationSpeed.z;
+        
+        const pulse = Math.sin(Date.now() * thing.userData.pulseSpeed) * thing.userData.pulseAmount;
+        thing.userData.targetScale = 1 + pulse;
+        thing.userData.scale += (thing.userData.targetScale - thing.userData.scale) * 0.05;
+        thing.scale.set(thing.userData.scale, thing.userData.scale, thing.userData.scale);
+        
+        thing.position.y = Math.sin(Date.now() * thing.userData.floatSpeed) * thing.userData.floatHeight;
+        
+        const color = new THREE.Color(thing.userData.baseColor);
+        const brightness = 0.5 + Math.sin(Date.now() * thing.userData.colorSpeed) * 0.1;
+        color.offsetHSL(0, 0, brightness - 0.5);
+        thing.material.color = color;
+        thing.material.emissive = color;
+        thing.material.emissiveIntensity = 0.1 + Math.sin(Date.now() * 0.001) * 0.05;
     });
     
     const positions = particleGeometry.attributes.position.array;
