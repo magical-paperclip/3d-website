@@ -625,4 +625,10 @@ function draw() {
     canvas.render(world, view);
 }
 
+window.addEventListener('resize', () => {
+    view.aspect = window.innerWidth / window.innerHeight;
+    view.updateProjectionMatrix();
+    canvas.setSize(window.innerWidth, window.innerHeight);
+});
+
 draw(); 
