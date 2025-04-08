@@ -1,16 +1,16 @@
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0a);
+const world = new THREE.Scene();
+world.background = new THREE.Color(0x0a0a0a);
 
-const cam = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-cam.position.set(0, 2, 7);
+const view = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+view.position.set(0, 2, 7);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.getElementById('canvas').appendChild(renderer.domElement);
+const canvas = new THREE.WebGLRenderer({ antialias: true });
+canvas.setSize(window.innerWidth, window.innerHeight);
+canvas.setPixelRatio(window.devicePixelRatio);
+document.getElementById('canvas').appendChild(canvas.domElement);
 
-const cursor = document.createElement('div');
-cursor.style.cssText = `
+const dot = document.createElement('div');
+dot.style.cssText = `
     width: 20px;
     height: 20px;
     border: 2px solid #7d7dff;
@@ -22,23 +22,27 @@ cursor.style.cssText = `
     transition: transform 0.1s ease;
     box-shadow: 0 0 10px #7d7dff;
 `;
-document.body.appendChild(cursor);
+document.body.appendChild(dot);
 
-const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
-scene.add(ambientLight);
+const softLight = new THREE.AmbientLight(0x404040, 0.2);
+world.add(softLight);
 
-const sun = new THREE.DirectionalLight(0x7d7dff, 1.2);
-sun.position.set(2, 3, 2);
-scene.add(sun);
+const mainLight = new THREE.DirectionalLight(0x7d7dff, 1.5);
+mainLight.position.set(3, 4, 3);
+world.add(mainLight);
 
-const rimLight = new THREE.DirectionalLight(0x7d7dff, 0.8);
-rimLight.position.set(-2, -1, -2);
-scene.add(rimLight);
+const edgeLight = new THREE.DirectionalLight(0x7d7dff, 1.0);
+edgeLight.position.set(-3, -2, -3);
+world.add(edgeLight);
 
-const particleCount = 300;
-const particleGeometry = new THREE.BufferGeometry();
-const particlePositions = new Float32Array(particleCount * 3);
-const particleMaterial = new THREE.PointsMaterial({
+const backLight = new THREE.DirectionalLight(0x7d7dff, 0.8);
+backLight.position.set(0, 0, -5);
+world.add(backLight);
+
+const sparkCount = 300;
+const sparkGeo = new THREE.BufferGeometry();
+const sparkPos = new Float32Array(sparkCount * 3);
+const sparkMat = new THREE.PointsMaterial({
     color: 0x7d7dff,
     size: 0.15,
     transparent: true,
@@ -47,9 +51,9 @@ const particleMaterial = new THREE.PointsMaterial({
     sizeAttenuation: true
 });
 
-const glowGeometry = new THREE.BufferGeometry();
-const glowPositions = new Float32Array(particleCount * 3);
-const glowMaterial = new THREE.PointsMaterial({
+const glowGeo = new THREE.BufferGeometry();
+const glowPos = new Float32Array(sparkCount * 3);
+const glowMat = new THREE.PointsMaterial({
     color: 0x7d7dff,
     size: 0.3,
     transparent: true,
@@ -58,279 +62,292 @@ const glowMaterial = new THREE.PointsMaterial({
     sizeAttenuation: true
 });
 
-for (let i = 0; i < particleCount; i++) {
+for (let i = 0; i < sparkCount; i++) {
     const x = (Math.random() - 0.5) * 20;
     const y = (Math.random() - 0.5) * 20;
     const z = (Math.random() - 0.5) * 20;
     
-    particlePositions[i * 3] = x;
-    particlePositions[i * 3 + 1] = y;
-    particlePositions[i * 3 + 2] = z;
+    sparkPos[i * 3] = x;
+    sparkPos[i * 3 + 1] = y;
+    sparkPos[i * 3 + 2] = z;
     
-    glowPositions[i * 3] = x;
-    glowPositions[i * 3 + 1] = y;
-    glowPositions[i * 3 + 2] = z;
+    glowPos[i * 3] = x;
+    glowPos[i * 3 + 1] = y;
+    glowPos[i * 3 + 2] = z;
 }
 
-particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-glowGeometry.setAttribute('position', new THREE.BufferAttribute(glowPositions, 3));
+sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+glowGeo.setAttribute('position', new THREE.BufferAttribute(glowPos, 3));
 
-const particles = new THREE.Points(particleGeometry, particleMaterial);
-const glowParticles = new THREE.Points(glowGeometry, glowMaterial);
-scene.add(particles);
-scene.add(glowParticles);
+const sparks = new THREE.Points(sparkGeo, sparkMat);
+const glows = new THREE.Points(glowGeo, glowMat);
+world.add(sparks);
+world.add(glows);
 
-const shapes = [
-    { name: 'sphere', geo: new THREE.SphereGeometry(2, 64, 64) },
-    { name: 'cube', geo: new THREE.BoxGeometry(2.5, 2.5, 2.5, 32, 32, 32) },
-    { name: 'torus', geo: new THREE.TorusGeometry(2, 0.6, 32, 64) }
+const forms = [
+    { name: 'sphere', shape: new THREE.SphereGeometry(2, 64, 64) },
+    { name: 'cube', shape: new THREE.BoxGeometry(2.5, 2.5, 2.5, 32, 32, 32) },
+    { name: 'torus', shape: new THREE.TorusGeometry(2, 0.6, 32, 64) }
 ];
 
-const gridPositions = [
+const spots = [
     { x: -6, z: -6 },
     { x: 0, z: -10 },
     { x: 6, z: -6 }
 ];
 
-const purpleShades = [
+const purples = [
     0x8A2BE2, 
     0x9370DB, 
     0x9932CC  
 ];
 
-const stuff = [];
+const objects = [];
 for (let i = 0; i < 3; i++) {
-    const material = new THREE.MeshPhongMaterial({ 
-        color: purpleShades[i],
-        shininess: 20,
+    const look = new THREE.MeshPhongMaterial({ 
+        color: purples[i],
+        shininess: 15,
         wireframe: false,
-        emissive: purpleShades[i],
-        emissiveIntensity: 0.1,
+        emissive: purples[i],
+        emissiveIntensity: 0.05,
         flatShading: true,
-        specular: 0x222222,
-        roughness: 0.9,
-        metalness: 0.2
+        specular: 0x333333,
+        roughness: 0.95,
+        metalness: 0.3,
+        bumpScale: 0.5
     });
 
-    const thing = new THREE.Mesh(shapes[i].geo, material);
-    thing.position.set(gridPositions[i].x, 0, gridPositions[i].z);
+    const obj = new THREE.Mesh(forms[i].shape, look);
+    obj.position.set(spots[i].x, 0, spots[i].z);
     
-    const vertices = thing.geometry.attributes.position.array;
-    for (let j = 0; j < vertices.length; j += 3) {
-        const x = vertices[j];
-        const y = vertices[j + 1];
-        const z = vertices[j + 2];
+    const points = obj.geometry.attributes.position.array;
+    const faces = obj.geometry.attributes.normal.array;
+    for (let j = 0; j < points.length; j += 3) {
+        const x = points[j];
+        const y = points[j + 1];
+        const z = points[j + 2];
         
-        const noise = Math.random() * 0.2;
-        const wave = Math.sin(x * 2) * Math.cos(y * 2) * Math.sin(z * 2) * 0.1;
-        const dent = Math.random() * 0.15;
+        const noise = Math.random() * 0.3;
+        const wave = Math.sin(x * 3) * Math.cos(y * 3) * Math.sin(z * 3) * 0.15;
+        const dent = Math.random() * 0.2;
+        const ripple = Math.sin(Math.sqrt(x*x + y*y + z*z) * 4) * 0.1;
+        const crack = Math.random() > 0.95 ? Math.random() * 0.25 : 0;
         
-        vertices[j] += x * noise + wave + dent;
-        vertices[j + 1] += y * noise + wave + dent;
-        vertices[j + 2] += z * noise + wave + dent;
+        points[j] += x * noise + wave + dent + ripple + crack;
+        points[j + 1] += y * noise + wave + dent + ripple + crack;
+        points[j + 2] += z * noise + wave + dent + ripple + crack;
+        
+        const nx = faces[j];
+        const ny = faces[j + 1];
+        const nz = faces[j + 2];
+        
+        faces[j] += nx * noise * 0.5;
+        faces[j + 1] += ny * noise * 0.5;
+        faces[j + 2] += nz * noise * 0.5;
     }
-    thing.geometry.attributes.position.needsUpdate = true;
-    thing.geometry.computeVertexNormals();
+    obj.geometry.attributes.position.needsUpdate = true;
+    obj.geometry.attributes.normal.needsUpdate = true;
+    obj.geometry.computeVertexNormals();
     
-    thing.userData = {
-        type: shapes[i].name,
-        originalPos: {x: gridPositions[i].x, y: 0, z: gridPositions[i].z},
-        rotationSpeed: {x: Math.random() * 0.003, y: Math.random() * 0.003, z: Math.random() * 0.003},
-        scale: 1,
-        floatSpeed: Math.random() * 0.0002 + 0.0002,
-        floatHeight: Math.random() * 0.15 + 0.15,
-        pulseSpeed: Math.random() * 0.0002 + 0.0002,
-        pulseAmount: Math.random() * 0.03 + 0.03,
-        colorSpeed: Math.random() * 0.0002 + 0.0002,
-        baseColor: purpleShades[i],
-        targetScale: 1,
+    obj.userData = {
+        type: forms[i].name,
+        startPos: {x: spots[i].x, y: 0, z: spots[i].z},
+        spin: {x: Math.random() * 0.002, y: Math.random() * 0.002, z: Math.random() * 0.002},
+        size: 1,
+        floatSpeed: Math.random() * 0.0001 + 0.0001,
+        floatHeight: Math.random() * 0.1 + 0.1,
+        pulseSpeed: Math.random() * 0.0001 + 0.0001,
+        pulseAmount: Math.random() * 0.02 + 0.02,
+        colorSpeed: Math.random() * 0.0001 + 0.0001,
+        color: purples[i],
+        targetSize: 1,
         morphProgress: 0
     };
-    scene.add(thing);
-    stuff.push(thing);
+    world.add(obj);
+    objects.push(obj);
 }
 
-const mouse = new THREE.Vector2();
+const pointer = new THREE.Vector2();
 const ray = new THREE.Raycaster();
 
-const explosionParticles = [];
-const maxExplosionParticles = 200;
+const bits = [];
+const maxBits = 200;
 
-for (let i = 0; i < maxExplosionParticles; i++) {
-    const geometry = new THREE.SphereGeometry(0.2, 8, 8);
-    const material = new THREE.MeshBasicMaterial({
+for (let i = 0; i < maxBits; i++) {
+    const geo = new THREE.SphereGeometry(0.2, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
         opacity: 1,
         blending: THREE.AdditiveBlending
     });
-    const particle = new THREE.Mesh(geometry, material);
-    particle.visible = false;
-    scene.add(particle);
-    explosionParticles.push(particle);
+    const bit = new THREE.Mesh(geo, mat);
+    bit.visible = false;
+    world.add(bit);
+    bits.push(bit);
 }
 
-function createExplosion(position, color) {
-    const activeParticles = explosionParticles.filter(p => !p.visible);
-    const count = Math.min(50, activeParticles.length);
+function makeBits(pos, col) {
+    const activeBits = bits.filter(b => !b.visible);
+    const count = Math.min(50, activeBits.length);
     
     for (let i = 0; i < count; i++) {
-        const particle = activeParticles[i];
-        particle.position.copy(position);
-        particle.material.color.set(color);
-        particle.userData = {
-            velocity: new THREE.Vector3(
+        const bit = activeBits[i];
+        bit.position.copy(pos);
+        bit.material.color.set(col);
+        bit.userData = {
+            move: new THREE.Vector3(
                 (Math.random() - 0.5) * 0.3,
                 (Math.random() - 0.5) * 0.3,
                 (Math.random() - 0.5) * 0.3
             ),
             life: 1.0,
-            scale: 0.2 + Math.random() * 0.3,
-            rotationSpeed: new THREE.Vector3(
+            size: 0.2 + Math.random() * 0.3,
+            spin: new THREE.Vector3(
                 (Math.random() - 0.5) * 0.1,
                 (Math.random() - 0.5) * 0.1,
                 (Math.random() - 0.5) * 0.1
             )
         };
-        particle.scale.set(1, 1, 1);
-        particle.visible = true;
+        bit.scale.set(1, 1, 1);
+        bit.visible = true;
     }
 }
 
 window.addEventListener('mousemove', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
     
-    cursor.style.left = e.clientX + 'px';
-    cursor.style.top = e.clientY + 'px';
+    dot.style.left = e.clientX + 'px';
+    dot.style.top = e.clientY + 'px';
     
-    stuff.forEach(thing => {
+    objects.forEach(obj => {
         const dist = Math.sqrt(
-            Math.pow(thing.position.x - (mouse.x * 8), 2) + 
-            Math.pow(thing.position.z - (mouse.y * 8), 2)
+            Math.pow(obj.position.x - (pointer.x * 8), 2) + 
+            Math.pow(obj.position.z - (pointer.y * 8), 2)
         );
         
-        thing.rotation.x += thing.userData.rotationSpeed.x;
-        thing.rotation.y += thing.userData.rotationSpeed.y;
-        thing.rotation.z += thing.userData.rotationSpeed.z;
+        obj.rotation.x += obj.userData.spin.x;
+        obj.rotation.y += obj.userData.spin.y;
+        obj.rotation.z += obj.userData.spin.z;
         
-        const pulse = Math.sin(Date.now() * thing.userData.pulseSpeed) * thing.userData.pulseAmount;
-        const targetScale = 1 + 0.3 / dist + pulse;
-        thing.userData.scale += (targetScale - thing.userData.scale) * 0.1;
-        thing.scale.set(thing.userData.scale, thing.userData.scale, thing.userData.scale);
+        const pulse = Math.sin(Date.now() * obj.userData.pulseSpeed) * obj.userData.pulseAmount;
+        const targetSize = 1 + 0.3 / dist + pulse;
+        obj.userData.size += (targetSize - obj.userData.size) * 0.1;
+        obj.scale.set(obj.userData.size, obj.userData.size, obj.userData.size);
         
-        thing.position.y = Math.sin(Date.now() * thing.userData.floatSpeed + i) * thing.userData.floatHeight;
+        obj.position.y = Math.sin(Date.now() * obj.userData.floatSpeed + i) * obj.userData.floatHeight;
         
-        const color = new THREE.Color(thing.userData.baseColor);
-        const brightness = 0.5 + Math.sin(Date.now() * thing.userData.colorSpeed) * 0.2;
-        color.offsetHSL(0, 0, brightness - 0.5);
-        thing.material.color = color;
-        thing.material.emissive = color;
-        thing.material.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.002) * 0.1;
+        const col = new THREE.Color(obj.userData.color);
+        const bright = 0.5 + Math.sin(Date.now() * obj.userData.colorSpeed) * 0.2;
+        col.offsetHSL(0, 0, bright - 0.5);
+        obj.material.color = col;
+        obj.material.emissive = col;
+        obj.material.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.002) * 0.1;
     });
 });
 
 window.addEventListener('click', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
     
-    ray.setFromCamera(mouse, cam);
-    const hits = ray.intersectObjects(stuff);
+    ray.setFromCamera(pointer, view);
+    const hits = ray.intersectObjects(objects);
     
     if (hits.length > 0) {
-        const thing = hits[0].object;
-        const now = shapes.findIndex(s => s.name === thing.userData.type);
-        const next = (now + 1) % shapes.length;
+        const obj = hits[0].object;
+        const now = forms.findIndex(f => f.name === obj.userData.type);
+        const next = (now + 1) % forms.length;
         
-        createExplosion(thing.position.clone(), thing.material.color);
+        makeBits(obj.position.clone(), obj.material.color);
         
-        thing.userData.morphing = true;
-        thing.userData.morphProgress = 0;
-        thing.userData.nextShape = next;
+        obj.userData.morphing = true;
+        obj.userData.morphProgress = 0;
+        obj.userData.nextShape = next;
         
         setTimeout(() => {
-            thing.geometry = shapes[next].geo;
-            thing.userData.type = shapes[next].name;
-            thing.userData.rotationSpeed = {
+            obj.geometry = forms[next].shape;
+            obj.userData.type = forms[next].name;
+            obj.userData.spin = {
                 x: Math.random() * 0.005,
                 y: Math.random() * 0.005,
                 z: Math.random() * 0.005
             };
-            thing.userData.pulseSpeed = Math.random() * 0.0003 + 0.0003;
-            thing.userData.pulseAmount = Math.random() * 0.05 + 0.05;
-            thing.userData.colorSpeed = Math.random() * 0.0003 + 0.0003;
-            document.getElementById('shape').textContent = thing.userData.type;
+            obj.userData.pulseSpeed = Math.random() * 0.0003 + 0.0003;
+            obj.userData.pulseAmount = Math.random() * 0.05 + 0.05;
+            obj.userData.colorSpeed = Math.random() * 0.0003 + 0.0003;
+            document.getElementById('shape').textContent = obj.userData.type;
         }, 1000);
     }
 });
 
-function animate() {
-    requestAnimationFrame(animate);
+function draw() {
+    requestAnimationFrame(draw);
     
-    explosionParticles.forEach(particle => {
-        if (particle.visible) {
-            particle.position.add(particle.userData.velocity);
-            particle.rotation.x += particle.userData.rotationSpeed.x;
-            particle.rotation.y += particle.userData.rotationSpeed.y;
-            particle.rotation.z += particle.userData.rotationSpeed.z;
+    bits.forEach(bit => {
+        if (bit.visible) {
+            bit.position.add(bit.userData.move);
+            bit.rotation.x += bit.userData.spin.x;
+            bit.rotation.y += bit.userData.spin.y;
+            bit.rotation.z += bit.userData.spin.z;
             
-            particle.userData.life -= 0.01;
-            particle.scale.setScalar(particle.userData.scale * particle.userData.life);
-            particle.material.opacity = particle.userData.life;
+            bit.userData.life -= 0.01;
+            bit.scale.setScalar(bit.userData.size * bit.userData.life);
+            bit.material.opacity = bit.userData.life;
             
-            if (particle.userData.life <= 0) {
-                particle.visible = false;
+            if (bit.userData.life <= 0) {
+                bit.visible = false;
             }
         }
     });
     
-    stuff.forEach(thing => {
-        if (thing.userData.morphing) {
-            thing.userData.morphProgress += 0.01;
-            if (thing.userData.morphProgress >= 1) {
-                thing.userData.morphing = false;
+    objects.forEach(obj => {
+        if (obj.userData.morphing) {
+            obj.userData.morphProgress += 0.01;
+            if (obj.userData.morphProgress >= 1) {
+                obj.userData.morphing = false;
             }
             
-            const scale = 1 + Math.sin(thing.userData.morphProgress * Math.PI) * 0.2;
-            thing.scale.set(scale, scale, scale);
+            const size = 1 + Math.sin(obj.userData.morphProgress * Math.PI) * 0.2;
+            obj.scale.set(size, size, size);
         }
         
-        thing.rotation.x += thing.userData.rotationSpeed.x;
-        thing.rotation.y += thing.userData.rotationSpeed.y;
-        thing.rotation.z += thing.userData.rotationSpeed.z;
+        obj.rotation.x += obj.userData.spin.x;
+        obj.rotation.y += obj.userData.spin.y;
+        obj.rotation.z += obj.userData.spin.z;
         
-        const pulse = Math.sin(Date.now() * thing.userData.pulseSpeed) * thing.userData.pulseAmount;
-        thing.userData.targetScale = 1 + pulse;
-        thing.userData.scale += (thing.userData.targetScale - thing.userData.scale) * 0.05;
-        thing.scale.set(thing.userData.scale, thing.userData.scale, thing.userData.scale);
+        const pulse = Math.sin(Date.now() * obj.userData.pulseSpeed) * obj.userData.pulseAmount;
+        obj.userData.targetSize = 1 + pulse;
+        obj.userData.size += (obj.userData.targetSize - obj.userData.size) * 0.05;
+        obj.scale.set(obj.userData.size, obj.userData.size, obj.userData.size);
         
-        thing.position.y = Math.sin(Date.now() * thing.userData.floatSpeed) * thing.userData.floatHeight;
+        obj.position.y = Math.sin(Date.now() * obj.userData.floatSpeed) * obj.userData.floatHeight;
         
-        const color = new THREE.Color(thing.userData.baseColor);
-        const brightness = 0.5 + Math.sin(Date.now() * thing.userData.colorSpeed) * 0.1;
-        color.offsetHSL(0, 0, brightness - 0.5);
-        thing.material.color = color;
-        thing.material.emissive = color;
-        thing.material.emissiveIntensity = 0.1 + Math.sin(Date.now() * 0.001) * 0.05;
+        const col = new THREE.Color(obj.userData.color);
+        const bright = 0.5 + Math.sin(Date.now() * obj.userData.colorSpeed) * 0.1;
+        col.offsetHSL(0, 0, bright - 0.5);
+        obj.material.color = col;
+        obj.material.emissive = col;
+        obj.material.emissiveIntensity = 0.05 + Math.sin(Date.now() * 0.001) * 0.02;
     });
     
-    const positions = particleGeometry.attributes.position.array;
-    const glowPositions = glowGeometry.attributes.position.array;
+    const sparkPos = sparkGeo.attributes.position.array;
+    const glowPos = glowGeo.attributes.position.array;
     
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3 + 1] += 0.02;
-        glowPositions[i * 3 + 1] += 0.02;
+    for (let i = 0; i < sparkCount; i++) {
+        sparkPos[i * 3 + 1] += 0.02;
+        glowPos[i * 3 + 1] += 0.02;
         
-        if (positions[i * 3 + 1] > 10) {
-            positions[i * 3 + 1] = -10;
-            glowPositions[i * 3 + 1] = -10;
+        if (sparkPos[i * 3 + 1] > 10) {
+            sparkPos[i * 3 + 1] = -10;
+            glowPos[i * 3 + 1] = -10;
         }
     }
     
-    particleGeometry.attributes.position.needsUpdate = true;
-    glowGeometry.attributes.position.needsUpdate = true;
+    sparkGeo.attributes.position.needsUpdate = true;
+    glowGeo.attributes.position.needsUpdate = true;
     
-    renderer.render(scene, cam);
+    canvas.render(world, view);
 }
 
-animate(); 
+draw(); 
