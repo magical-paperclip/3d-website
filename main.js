@@ -1,6 +1,5 @@
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0a);
-scene.fog = new THREE.FogExp2(0x0a0a0a, 0.1);
 
 const cam = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 cam.position.set(0, 2, 7);
@@ -9,20 +8,6 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 document.getElementById('canvas').appendChild(renderer.domElement);
-
-const composer = new THREE.EffectComposer(renderer);
-const renderPass = new THREE.RenderPass(scene, cam);
-composer.addPass(renderPass);
-
-const bloomPass = new THREE.UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    1.5, 0.4, 0.85
-);
-composer.addPass(bloomPass);
-
-const glitchPass = new THREE.GlitchPass();
-glitchPass.goWild = false;
-composer.addPass(glitchPass);
 
 const cursor = document.createElement('div');
 cursor.style.cssText = `
@@ -38,27 +23,6 @@ cursor.style.cssText = `
     box-shadow: 0 0 10px #7d7dff;
 `;
 document.body.appendChild(cursor);
-
-const lensFlare = new THREE.LensFlare();
-scene.add(lensFlare);
-
-const audioListener = new THREE.AudioListener();
-cam.add(audioListener);
-
-const ambientSound = new THREE.Audio(audioListener);
-const audioLoader = new THREE.AudioLoader();
-audioLoader.load('ambient.mp3', function(buffer) {
-    ambientSound.setBuffer(buffer);
-    ambientSound.setLoop(true);
-    ambientSound.setVolume(0.5);
-    ambientSound.play();
-});
-
-const clickSound = new THREE.Audio(audioListener);
-audioLoader.load('click.mp3', function(buffer) {
-    clickSound.setBuffer(buffer);
-    clickSound.setVolume(0.3);
-});
 
 const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
 scene.add(ambientLight);
@@ -115,9 +79,7 @@ scene.add(glowParticles);
 const shapes = [
     { name: 'sphere', geo: new THREE.SphereGeometry(2, 64, 64) },
     { name: 'cube', geo: new THREE.BoxGeometry(2.5, 2.5, 2.5) },
-    { name: 'torus', geo: new THREE.TorusGeometry(2, 0.6, 32, 64) },
-    { name: 'icosahedron', geo: new THREE.IcosahedronGeometry(2, 0) },
-    { name: 'octahedron', geo: new THREE.OctahedronGeometry(2, 0) }
+    { name: 'torus', geo: new THREE.TorusGeometry(2, 0.6, 32, 64) }
 ];
 
 const gridPositions = [
@@ -155,9 +117,7 @@ for (let i = 0; i < 3; i++) {
         pulseSpeed: Math.random() * 0.001 + 0.001,
         pulseAmount: Math.random() * 0.2 + 0.1,
         colorSpeed: Math.random() * 0.001 + 0.001,
-        baseColor: purpleShades[i],
-        morphing: false,
-        morphProgress: 0
+        baseColor: purpleShades[i]
     };
     scene.add(thing);
     stuff.push(thing);
@@ -165,50 +125,49 @@ for (let i = 0; i < 3; i++) {
 
 const mouse = new THREE.Vector2();
 const ray = new THREE.Raycaster();
-let isDragging = false;
-let previousMousePosition = { x: 0, y: 0 };
 
-function createExplosion(position) {
-    const explosionGeometry = new THREE.BufferGeometry();
-    const explosionCount = 50;
-    const explosionPositions = new Float32Array(explosionCount * 3);
-    const explosionMaterial = new THREE.PointsMaterial({
+const explosionParticles = [];
+const maxExplosionParticles = 200;
+
+for (let i = 0; i < maxExplosionParticles; i++) {
+    const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        size: 0.2,
         transparent: true,
         opacity: 1,
         blending: THREE.AdditiveBlending
     });
+    const particle = new THREE.Mesh(geometry, material);
+    particle.visible = false;
+    scene.add(particle);
+    explosionParticles.push(particle);
+}
 
-    for (let i = 0; i < explosionCount; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * 2;
-        explosionPositions[i * 3] = position.x + Math.cos(angle) * radius;
-        explosionPositions[i * 3 + 1] = position.y + Math.sin(angle) * radius;
-        explosionPositions[i * 3 + 2] = position.z;
+function createExplosion(position, color) {
+    const activeParticles = explosionParticles.filter(p => !p.visible);
+    const count = Math.min(50, activeParticles.length);
+    
+    for (let i = 0; i < count; i++) {
+        const particle = activeParticles[i];
+        particle.position.copy(position);
+        particle.material.color.set(color);
+        particle.userData = {
+            velocity: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3
+            ),
+            life: 1.0,
+            scale: 0.2 + Math.random() * 0.3,
+            rotationSpeed: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.1,
+                (Math.random() - 0.5) * 0.1,
+                (Math.random() - 0.5) * 0.1
+            )
+        };
+        particle.scale.set(1, 1, 1);
+        particle.visible = true;
     }
-
-    explosionGeometry.setAttribute('position', new THREE.BufferAttribute(explosionPositions, 3));
-    const explosion = new THREE.Points(explosionGeometry, explosionMaterial);
-    scene.add(explosion);
-
-    const duration = 1000;
-    const startTime = Date.now();
-
-    function animateExplosion() {
-        const elapsed = Date.now() - startTime;
-        const progress = elapsed / duration;
-
-        if (progress < 1) {
-            explosion.material.opacity = 1 - progress;
-            explosion.scale.set(1 + progress * 2, 1 + progress * 2, 1 + progress * 2);
-            requestAnimationFrame(animateExplosion);
-        } else {
-            scene.remove(explosion);
-        }
-    }
-
-    animateExplosion();
 }
 
 window.addEventListener('mousemove', (e) => {
@@ -217,21 +176,6 @@ window.addEventListener('mousemove', (e) => {
     
     cursor.style.left = e.clientX + 'px';
     cursor.style.top = e.clientY + 'px';
-    
-    if (isDragging) {
-        const deltaMove = {
-            x: e.clientX - previousMousePosition.x,
-            y: e.clientY - previousMousePosition.y
-        };
-
-        cam.rotation.y += deltaMove.x * 0.01;
-        cam.rotation.x += deltaMove.y * 0.01;
-    }
-
-    previousMousePosition = {
-        x: e.clientX,
-        y: e.clientY
-    };
     
     stuff.forEach(thing => {
         const dist = Math.sqrt(
@@ -256,35 +200,10 @@ window.addEventListener('mousemove', (e) => {
         thing.material.color = color;
         thing.material.emissive = color;
         thing.material.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.002) * 0.1;
-
-        if (thing.userData.morphing) {
-            thing.userData.morphProgress += 0.05;
-            if (thing.userData.morphProgress >= 1) {
-                thing.userData.morphing = false;
-                thing.userData.morphProgress = 0;
-            }
-        }
     });
 });
 
-window.addEventListener('mousedown', () => {
-    isDragging = true;
-});
-
-window.addEventListener('mouseup', () => {
-    isDragging = false;
-});
-
-window.addEventListener('wheel', (e) => {
-    cam.position.z += e.deltaY * 0.01;
-});
-
-let lastClickTime = 0;
 window.addEventListener('click', (e) => {
-    const currentTime = Date.now();
-    const isDoubleClick = currentTime - lastClickTime < 300;
-    lastClickTime = currentTime;
-
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     
@@ -293,60 +212,53 @@ window.addEventListener('click', (e) => {
     
     if (hits.length > 0) {
         const thing = hits[0].object;
+        const now = shapes.findIndex(s => s.name === thing.userData.type);
+        const next = (now + 1) % shapes.length;
         
-        if (isDoubleClick) {
-            createExplosion(thing.position);
-            clickSound.play();
-        } else {
-            const now = shapes.findIndex(s => s.name === thing.userData.type);
-            const next = (now + 1) % shapes.length;
-            
-            thing.userData.morphing = true;
-            thing.userData.morphProgress = 0;
-            
-            setTimeout(() => {
-                thing.geometry = shapes[next].geo;
-                thing.userData.type = shapes[next].name;
-                thing.userData.rotationSpeed = {
-                    x: Math.random() * 0.02,
-                    y: Math.random() * 0.02,
-                    z: Math.random() * 0.02
-                };
-                thing.userData.pulseSpeed = Math.random() * 0.001 + 0.001;
-                thing.userData.pulseAmount = Math.random() * 0.2 + 0.1;
-                thing.userData.colorSpeed = Math.random() * 0.001 + 0.001;
-            }, 500);
-            
+        // Create explosion at current position
+        createExplosion(thing.position.clone(), thing.material.color);
+        
+        // Hide current shape
+        thing.visible = false;
+        
+        // Create new shape after a delay
+        setTimeout(() => {
+            thing.geometry = shapes[next].geo;
+            thing.userData.type = shapes[next].name;
+            thing.userData.rotationSpeed = {
+                x: Math.random() * 0.02,
+                y: Math.random() * 0.02,
+                z: Math.random() * 0.02
+            };
+            thing.userData.pulseSpeed = Math.random() * 0.001 + 0.001;
+            thing.userData.pulseAmount = Math.random() * 0.2 + 0.1;
+            thing.userData.colorSpeed = Math.random() * 0.001 + 0.001;
+            thing.visible = true;
             document.getElementById('shape').textContent = thing.userData.type;
-        }
-    }
-});
-
-document.addEventListener('keydown', (e) => {
-    switch(e.key) {
-        case 'ArrowUp':
-            cam.position.y += 0.5;
-            break;
-        case 'ArrowDown':
-            cam.position.y -= 0.5;
-            break;
-        case 'ArrowLeft':
-            cam.position.x -= 0.5;
-            break;
-        case 'ArrowRight':
-            cam.position.x += 0.5;
-            break;
-        case '+':
-            cam.position.z -= 0.5;
-            break;
-        case '-':
-            cam.position.z += 0.5;
-            break;
+        }, 500);
     }
 });
 
 function animate() {
     requestAnimationFrame(animate);
+    
+    // Update explosion particles
+    explosionParticles.forEach(particle => {
+        if (particle.visible) {
+            particle.position.add(particle.userData.velocity);
+            particle.rotation.x += particle.userData.rotationSpeed.x;
+            particle.rotation.y += particle.userData.rotationSpeed.y;
+            particle.rotation.z += particle.userData.rotationSpeed.z;
+            
+            particle.userData.life -= 0.015;
+            particle.scale.setScalar(particle.userData.scale * particle.userData.life);
+            particle.material.opacity = particle.userData.life;
+            
+            if (particle.userData.life <= 0) {
+                particle.visible = false;
+            }
+        }
+    });
     
     const positions = particleGeometry.attributes.position.array;
     const glowPositions = glowGeometry.attributes.position.array;
@@ -364,8 +276,7 @@ function animate() {
     particleGeometry.attributes.position.needsUpdate = true;
     glowGeometry.attributes.position.needsUpdate = true;
     
-    composer.render();
+    renderer.render(scene, cam);
 }
 
-animate(); 
 animate(); 
